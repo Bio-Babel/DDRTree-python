@@ -21,6 +21,8 @@ from sklearn.cluster import KMeans
 
 from ._utils import get_major_eigenvalue, pca_projection, sq_dist
 
+_VALID_BACKENDS = ("numpy",)
+
 
 @dataclass
 class DDRTreeResult:
@@ -52,9 +54,54 @@ def DDRTree(
     tol: float = 1e-3,
     verbose: bool = False,
     mst_algorithm: str = "prim",
+    backend: str = "numpy",
     **kwargs,
 ) -> DDRTreeResult:
     """Perform DDRTree principal-graph learning.
+
+    Dispatches to the requested computational ``backend``. The ``"numpy"``
+    backend (default) is the reference implementation and mirrors the R
+    package's ``src/DDRTree.cpp`` line-by-line; it is the target of
+    gold-standard parity tests. Other backends (``"torch"``, ``"auto"``) are
+    introduced by later phases and share the same public signature and
+    return contract.
+    """
+    if backend not in _VALID_BACKENDS:
+        raise ValueError(
+            f"backend must be one of {_VALID_BACKENDS!r}; got {backend!r}"
+        )
+    # Only "numpy" is valid today; further backends plug in here.
+    return _ddrtree_numpy(
+        X=X,
+        dimensions=dimensions,
+        initial_method=initial_method,
+        max_iter=max_iter,
+        sigma=sigma,
+        lambda_=lambda_,
+        ncenter=ncenter,
+        gamma=gamma,
+        tol=tol,
+        verbose=verbose,
+        mst_algorithm=mst_algorithm,
+        **kwargs,
+    )
+
+
+def _ddrtree_numpy(
+    X: np.ndarray,
+    dimensions: int = 2,
+    initial_method: Optional[Callable[..., np.ndarray]] = None,
+    max_iter: int = 20,
+    sigma: float = 1e-3,
+    lambda_: Optional[float] = None,
+    ncenter: Optional[int] = None,
+    gamma: float = 10.0,
+    tol: float = 1e-3,
+    verbose: bool = False,
+    mst_algorithm: str = "prim",
+    **kwargs,
+) -> DDRTreeResult:
+    """NumPy reference implementation of DDRTree.
 
     Parameters match the R ``DDRTree`` function (with Python-idiomatic
     renames: ``maxIter`` → ``max_iter``, ``param.gamma`` → ``gamma``,

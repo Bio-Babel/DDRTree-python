@@ -48,21 +48,18 @@ res.objective_vals  # objective at each iteration
 
 ## Backends
 
-`DDRTree` dispatches to one of several computational backends via the
+`DDRTree` dispatches to one of two computational backends via the
 `backend` argument. The public function signature is otherwise unchanged.
+Backend selection is always explicit — there is no auto-detection.
 
-| `backend`   | Executes on      | Typical use                                    |
-| ----------- | ---------------- | ---------------------------------------------- |
-| `"numpy"`   | CPU (NumPy)      | **Default.** Reference path, aligned with R.   |
-| `"torch"`   | CPU / CUDA       | GPU acceleration (Borůvka MST, fast BLAS).     |
-| `"auto"`    | picked at runtime| Use CUDA torch when available, else NumPy.     |
+| `backend` | Executes on | Typical use                                  |
+| --------- | ----------- | -------------------------------------------- |
+| `"numpy"` | CPU (NumPy) | **Default.** Reference path, aligned with R. |
+| `"torch"` | CPU / CUDA  | GPU acceleration (Borůvka MST, fast BLAS).   |
 
 ```python
 # GPU path — requires torch with CUDA
 res = DDRTree(X, ncenter=500, backend="torch", device="cuda")
-
-# Let the library pick: CUDA torch on GPU hosts, NumPy elsewhere
-res = DDRTree(X, ncenter=500, backend="auto")
 
 # Half precision (torch backend only). Memory ½, throughput ~1.5–2× on
 # CUDA, ~1e-3 relative drift in the converged embedding.

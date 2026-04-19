@@ -44,6 +44,14 @@ def test_backend_unknown_value_raises() -> None:
         DDRTree(X, backend="elephant")
 
 
+def test_backend_auto_is_not_supported() -> None:
+    """There is no ``"auto"`` backend. Users explicitly choose between
+    ``"numpy"`` and ``"torch"`` — no silent host-based dispatch."""
+    X = _make_small_X()
+    with pytest.raises(ValueError, match=r"backend must be one of"):
+        DDRTree(X, backend="auto")
+
+
 def test_backend_is_case_sensitive() -> None:
     X = _make_small_X()
     with pytest.raises(ValueError, match=r"backend must be one of"):

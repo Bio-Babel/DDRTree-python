@@ -21,47 +21,7 @@ from sklearn.cluster import KMeans
 
 from ._utils import get_major_eigenvalue, pca_projection, sq_dist
 
-_VALID_BACKENDS = ("numpy", "torch", "auto")
-
-
-def _resolve_auto_backend(device: Optional[str]) -> str:
-    """Pick the best available backend for ``backend="auto"``.
-
-    Heuristic (deliberately simple and predictable):
-
-    * If the caller asked for a CUDA device, only ``torch`` can satisfy
-      it — missing ``torch`` or CUDA raises here rather than silently
-      demoting to NumPy on CPU.
-    * Otherwise, prefer ``torch`` on CUDA when available (the speed
-      payoff is meaningful); fall back to NumPy (torch on CPU rarely
-      beats NumPy on the problem sizes DDRTree targets).
-    """
-    try:
-        import torch  # noqa: F401
-    except ImportError:
-        if device is not None and str(device).startswith("cuda"):
-            raise RuntimeError(
-                "backend='auto' with device='cuda' requires PyTorch; "
-                "install with `pip install ddrtree[torch]`."
-            )
-        return "numpy"
-    import torch as _torch
-
-    if device is not None and str(device).startswith("cuda"):
-        if not _torch.cuda.is_available():
-            raise RuntimeError(
-                "backend='auto' with device='cuda' requires a CUDA-capable "
-                "PyTorch build and an available GPU."
-            )
-        return "torch"
-
-    if device == "cpu":
-        return "numpy"  # torch CPU rarely beats numpy at DDRTree sizes
-
-    # device is None: prefer CUDA torch when available, else NumPy.
-    if _torch.cuda.is_available():
-        return "torch"
-    return "numpy"
+_VALID_BACKENDS = ("numpy", "torch")
 
 
 @dataclass
@@ -101,12 +61,12 @@ def DDRTree(
 ) -> DDRTreeResult:
     """Perform DDRTree principal-graph learning.
 
-    Dispatches to the requested computational ``backend``. The ``"numpy"``
-    backend (default) is the reference implementation and mirrors the R
-    package's ``src/DDRTree.cpp`` line-by-line; it is the target of
-    gold-standard parity tests. Other backends (``"torch"``, ``"auto"``) are
-    introduced by later phases and share the same public signature and
-    return contract.
+    Dispatches to the requested computational ``backend`` — either
+    ``"numpy"`` (default, reference implementation mirroring the R
+    package's ``src/DDRTree.cpp`` and the target of gold-standard parity
+    tests) or ``"torch"`` (PyTorch implementation running on CPU or CUDA,
+    with a GPU-friendly parallel Borůvka MST). Both backends share the
+    same public signature and return contract.
 
     ``mst_algorithm`` picks the minimum-spanning-tree algorithm used each
     iteration. When left ``None`` each backend uses its natural default:
@@ -125,13 +85,10 @@ def DDRTree(
         raise ValueError(
             f"dtype must be None, 'float32' or 'float64'; got {dtype!r}"
         )
-    if backend == "auto":
-        backend = _resolve_auto_backend(device)
 
     if backend == "numpy":
-        # NumPy backend has no device concept. Accept only None or "cpu"
-        # so that ``backend="auto"`` can hand us ``device="cpu"`` without
-        # friction, while any GPU request is rejected clearly.
+        # NumPy backend has no device concept. ``device="cpu"`` is accepted
+        # as a no-op; any GPU request is rejected clearly.
         if device not in (None, "cpu"):
             raise ValueError(
                 f"device={device!r} is not supported by backend='numpy'. "

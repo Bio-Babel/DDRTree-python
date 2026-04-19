@@ -8,50 +8,10 @@ a coverage regression.
 
 from __future__ import annotations
 
-import builtins
-import sys
-from unittest import mock
-
 import numpy as np
 import pytest
 
 from ddrtree import DDRTree
-from ddrtree._core import _resolve_auto_backend
-
-
-def test_resolve_auto_backend_without_torch_cpu_request() -> None:
-    """When torch is not importable and the caller asks for CPU (or
-    doesn't pass a device), we must fall back to NumPy silently."""
-    real_import = builtins.__import__
-
-    def _no_torch(name, *args, **kwargs):
-        if name == "torch":
-            raise ImportError("simulated: torch not installed")
-        return real_import(name, *args, **kwargs)
-
-    # Also drop already-imported torch so the stubbed import hook runs.
-    with mock.patch.dict(sys.modules, {}, clear=False) as patched:
-        patched.pop("torch", None)
-        with mock.patch("builtins.__import__", side_effect=_no_torch):
-            assert _resolve_auto_backend(None) == "numpy"
-            assert _resolve_auto_backend("cpu") == "numpy"
-
-
-def test_resolve_auto_backend_without_torch_cuda_request_raises() -> None:
-    """Missing torch + asking for CUDA is an error, not a silent demotion
-    to NumPy: the caller specifically wanted GPU execution."""
-    real_import = builtins.__import__
-
-    def _no_torch(name, *args, **kwargs):
-        if name == "torch":
-            raise ImportError("simulated: torch not installed")
-        return real_import(name, *args, **kwargs)
-
-    with mock.patch.dict(sys.modules, {}, clear=False) as patched:
-        patched.pop("torch", None)
-        with mock.patch("builtins.__import__", side_effect=_no_torch):
-            with pytest.raises(RuntimeError, match=r"requires PyTorch"):
-                _resolve_auto_backend("cuda")
 
 
 def test_torch_backend_verbose_prints(capsys: pytest.CaptureFixture[str]) -> None:

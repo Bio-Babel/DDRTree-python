@@ -21,7 +21,47 @@ from sklearn.cluster import KMeans
 
 from ._utils import get_major_eigenvalue, pca_projection, sq_dist
 
-_VALID_BACKENDS = ("numpy", "torch")
+_VALID_BACKENDS = ("numpy", "torch", "auto")
+
+
+def _resolve_auto_backend(device: Optional[str]) -> str:
+    """Pick the best available backend for ``backend="auto"``.
+
+    Heuristic (deliberately simple and predictable):
+
+    * If the caller asked for a CUDA device, only ``torch`` can satisfy
+      it — missing ``torch`` or CUDA raises here rather than silently
+      demoting to NumPy on CPU.
+    * Otherwise, prefer ``torch`` on CUDA when available (the speed
+      payoff is meaningful); fall back to NumPy (torch on CPU rarely
+      beats NumPy on the problem sizes DDRTree targets).
+    """
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        if device is not None and str(device).startswith("cuda"):
+            raise RuntimeError(
+                "backend='auto' with device='cuda' requires PyTorch; "
+                "install with `pip install ddrtree[torch]`."
+            )
+        return "numpy"
+    import torch as _torch
+
+    if device is not None and str(device).startswith("cuda"):
+        if not _torch.cuda.is_available():
+            raise RuntimeError(
+                "backend='auto' with device='cuda' requires a CUDA-capable "
+                "PyTorch build and an available GPU."
+            )
+        return "torch"
+
+    if device == "cpu":
+        return "numpy"  # torch CPU rarely beats numpy at DDRTree sizes
+
+    # device is None: prefer CUDA torch when available, else NumPy.
+    if _torch.cuda.is_available():
+        return "torch"
+    return "numpy"
 
 
 @dataclass
@@ -55,6 +95,7 @@ def DDRTree(
     verbose: bool = False,
     mst_algorithm: Optional[str] = None,
     backend: str = "numpy",
+    device: Optional[str] = None,
     **kwargs,
 ) -> DDRTreeResult:
     """Perform DDRTree principal-graph learning.
@@ -79,7 +120,18 @@ def DDRTree(
         raise ValueError(
             f"backend must be one of {_VALID_BACKENDS!r}; got {backend!r}"
         )
+    if backend == "auto":
+        backend = _resolve_auto_backend(device)
+
     if backend == "numpy":
+        # NumPy backend has no device concept. Accept only None or "cpu"
+        # so that ``backend="auto"`` can hand us ``device="cpu"`` without
+        # friction, while any GPU request is rejected clearly.
+        if device not in (None, "cpu"):
+            raise ValueError(
+                f"device={device!r} is not supported by backend='numpy'. "
+                "Use backend='torch' for GPU/CUDA execution."
+            )
         # Resolve the per-backend MST default. NumPy natively runs dense
         # Prim (matches R's src/DDRTree.cpp). "boruvka" is not offered by
         # the NumPy backend — we refuse to accept it here rather than
@@ -124,6 +176,7 @@ def DDRTree(
         tol=tol,
         verbose=verbose,
         mst_algorithm=mst_algorithm,
+        device=device,
         **kwargs,
     )
 

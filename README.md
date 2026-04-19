@@ -17,10 +17,13 @@ for any data with a tree-like intrinsic structure.
 ## Installation
 
 ```
-pip install ddrtree
+pip install ddrtree             # NumPy backend only
+pip install ddrtree[torch]      # + PyTorch backend (CPU / CUDA)
 ```
 
-Only depends on `numpy`, `scipy`, and `scikit-learn` — no C/C++ extensions.
+The core depends on `numpy`, `scipy`, and `scikit-learn`. The optional
+`torch` extra enables the GPU-friendly backend — no C/C++ extensions are
+built either way.
 
 ## Quick start
 
@@ -43,12 +46,51 @@ res.stree  # N x N scipy.sparse MST weights (first K x K block populated)
 res.objective_vals  # objective at each iteration
 ```
 
+## Backends
+
+`DDRTree` dispatches to one of several computational backends via the
+`backend` argument. The public function signature is otherwise unchanged.
+
+| `backend`   | Executes on      | Typical use                                    |
+| ----------- | ---------------- | ---------------------------------------------- |
+| `"numpy"`   | CPU (NumPy)      | **Default.** Reference path, aligned with R.   |
+| `"torch"`   | CPU / CUDA       | GPU acceleration (Borůvka MST, fast BLAS).     |
+| `"auto"`    | picked at runtime| Use CUDA torch when available, else NumPy.     |
+
+```python
+# GPU path — requires torch with CUDA
+res = DDRTree(X, ncenter=500, backend="torch", device="cuda")
+
+# Let the library pick: CUDA torch on GPU hosts, NumPy elsewhere
+res = DDRTree(X, ncenter=500, backend="auto")
+```
+
+Torch backend runs a **pure-torch parallel Borůvka** (`O(log K)` rounds)
+for the MST step — no host round trip per iteration. Explicit
+`mst_algorithm="prim"` or `"kruskal"` routes MST through NumPy / SciPy
+for strict parity testing against the R gold standard; see
+`tests/test_boruvka_integration.py`.
+
+### Known differences between backends
+
+* **PCA initialisation.** NumPy uses `scipy.sparse.linalg.svds` (iterative,
+  Lanczos, matches R's `irlba`). Torch uses a direct `torch.linalg.svd`
+  for the truncated branch — identical subspace, small per-iteration
+  numerical drift.
+* **K-means.** Both backends call `sklearn.cluster.KMeans` on CPU (small K,
+  negligible overhead). No GPU K-means yet.
+* **Cholesky fallback.** When the `tmp_M` system drifts non-PSD both
+  backends fall back to LU and emit a `RuntimeWarning`. The Y-update
+  Cholesky is strict in both backends — the `(λ/γ)L + Γ` system is PSD
+  by construction, any failure there is surfaced rather than masked.
+
 ## Numerical parity with the R package
 
 The test suite runs the same inputs through the R `DDRTree` package and compares
-the results. Eigen-vector sign flips (inherent to eigen-decompositions) are
-handled in tests. See `tests/scripts/generate_gold_standard.R` and
-`tests/test_ddrtree.py`.
+the results, for both backends. Eigen-vector sign flips (inherent to
+eigen-decompositions) are handled in tests. See
+`tests/scripts/generate_gold_standard.R`, `tests/test_ddrtree.py` (NumPy)
+and `tests/test_backend_torch_gold.py` (Torch).
 
 ## Reference
 

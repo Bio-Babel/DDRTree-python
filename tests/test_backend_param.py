@@ -44,19 +44,6 @@ def test_backend_unknown_value_raises() -> None:
         DDRTree(X, backend="elephant")
 
 
-@pytest.mark.parametrize("not_yet", ["auto"])
-def test_backend_reserved_values_rejected(not_yet: str) -> None:
-    """Backends reserved for later phases must be actively rejected now.
-
-    We refuse to silently fall back to ``"numpy"`` because that would hide
-    a user's intent to exercise a specific backend when one is available.
-    ``"auto"`` is reserved for P4 (device-aware dispatch).
-    """
-    X = _make_small_X()
-    with pytest.raises(ValueError, match=r"backend must be one of"):
-        DDRTree(X, backend=not_yet)
-
-
 def test_backend_is_case_sensitive() -> None:
     X = _make_small_X()
     with pytest.raises(ValueError, match=r"backend must be one of"):

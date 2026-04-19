@@ -178,23 +178,38 @@ def ddrtree_torch(
     tol: float = 1e-3,
     verbose: bool = False,
     mst_algorithm: str = "prim",
+    device: Optional[str] = None,
     **kwargs,
 ) -> DDRTreeResult:
-    """Torch-based DDRTree (CPU in P2; CUDA in P4).
+    """Torch-based DDRTree.
 
     Input ``X`` may be a NumPy array or any array-like convertible via
     ``np.ascontiguousarray``. The result is returned as NumPy arrays to
     preserve backward compatibility with existing downstream code.
+
+    Parameters
+    ----------
+    device : str or None
+        Target torch device (e.g. ``"cpu"``, ``"cuda"``, ``"cuda:0"``).
+        When ``None`` we default to ``"cpu"`` — if the caller wants GPU
+        execution they must opt in explicitly, either via ``device="cuda"``
+        here or through ``backend="auto"``.
     """
     X_np = np.ascontiguousarray(X, dtype=np.float64)
     if X_np.ndim != 2:
         raise ValueError(f"X must be 2D, got shape {X_np.shape}")
     D, N = X_np.shape
 
-    device = torch.device("cpu")
+    resolved_device = torch.device(device) if device is not None else torch.device("cpu")
+    if resolved_device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError(
+            f"device={device!r} was requested but PyTorch reports "
+            "CUDA is not available. Install a CUDA-capable build or "
+            "choose device='cpu'."
+        )
     dtype = torch.float64
 
-    X_t = torch.from_numpy(X_np).to(device=device, dtype=dtype)
+    X_t = torch.from_numpy(X_np).to(device=resolved_device, dtype=dtype)
 
     # ---- Initialisation (mirrors _ddrtree_numpy / DDRTree.R) ----------------
     W = _torch_pca_projection(X_t @ X_t.T, dimensions)            # (D, d)
@@ -208,7 +223,7 @@ def ddrtree_torch(
                 f"{tmp_np.shape}"
             )
         tmp = torch.from_numpy(np.ascontiguousarray(tmp_np)).to(
-            device=device, dtype=dtype
+            device=resolved_device, dtype=dtype
         )
         Z = tmp[:, :dimensions].T                                 # (d, N)
 
@@ -237,7 +252,7 @@ def ddrtree_torch(
         ).fit(Z_np.T)
         Y = torch.from_numpy(
             np.ascontiguousarray(km.cluster_centers_.T, dtype=np.float64)
-        ).to(device=device, dtype=dtype)
+        ).to(device=resolved_device, dtype=dtype)
 
     if lambda_ is None:
         lambda_ = 5.0 * N

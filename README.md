@@ -63,6 +63,10 @@ res = DDRTree(X, ncenter=500, backend="torch", device="cuda")
 
 # Let the library pick: CUDA torch on GPU hosts, NumPy elsewhere
 res = DDRTree(X, ncenter=500, backend="auto")
+
+# Half precision (torch backend only). Memory ½, throughput ~1.5–2× on
+# CUDA, ~1e-3 relative drift in the converged embedding.
+res = DDRTree(X, ncenter=500, backend="torch", device="cuda", dtype="float32")
 ```
 
 Torch backend runs a **pure-torch parallel Borůvka** (`O(log K)` rounds)

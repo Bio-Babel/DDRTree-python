@@ -96,6 +96,7 @@ def DDRTree(
     mst_algorithm: Optional[str] = None,
     backend: str = "numpy",
     device: Optional[str] = None,
+    dtype: Optional[str] = None,
     **kwargs,
 ) -> DDRTreeResult:
     """Perform DDRTree principal-graph learning.
@@ -120,6 +121,10 @@ def DDRTree(
         raise ValueError(
             f"backend must be one of {_VALID_BACKENDS!r}; got {backend!r}"
         )
+    if dtype is not None and dtype not in ("float32", "float64"):
+        raise ValueError(
+            f"dtype must be None, 'float32' or 'float64'; got {dtype!r}"
+        )
     if backend == "auto":
         backend = _resolve_auto_backend(device)
 
@@ -131,6 +136,13 @@ def DDRTree(
             raise ValueError(
                 f"device={device!r} is not supported by backend='numpy'. "
                 "Use backend='torch' for GPU/CUDA execution."
+            )
+        # fp32 is a torch-only opt-in — the NumPy reference path is fp64
+        # everywhere (scipy.sparse.linalg.svds is also not reliably fp32).
+        if dtype not in (None, "float64"):
+            raise ValueError(
+                f"dtype={dtype!r} is not supported by backend='numpy'. "
+                "Use backend='torch' for fp32 execution."
             )
         # Resolve the per-backend MST default. NumPy natively runs dense
         # Prim (matches R's src/DDRTree.cpp). "boruvka" is not offered by
@@ -177,6 +189,7 @@ def DDRTree(
         verbose=verbose,
         mst_algorithm=mst_algorithm,
         device=device,
+        dtype=dtype,
         **kwargs,
     )
 

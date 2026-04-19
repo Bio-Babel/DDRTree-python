@@ -179,6 +179,7 @@ def ddrtree_torch(
     verbose: bool = False,
     mst_algorithm: str = "prim",
     device: Optional[str] = None,
+    dtype: Optional[str] = None,
     **kwargs,
 ) -> DDRTreeResult:
     """Torch-based DDRTree.
@@ -194,6 +195,13 @@ def ddrtree_torch(
         When ``None`` we default to ``"cpu"`` — if the caller wants GPU
         execution they must opt in explicitly, either via ``device="cuda"``
         here or through ``backend="auto"``.
+    dtype : {"float32", "float64"} or None
+        Compute precision for the iteration tensors. ``None`` (default)
+        is ``"float64"`` — the R-aligned reference precision. ``"float32"``
+        halves memory and typically gains a further 1.5–2× on CUDA, at
+        the cost of ~1e-3 relative drift in the converged Y/Z and a
+        slightly higher chance of the Cholesky→LU fallback firing when
+        the ``tmp_M`` system drifts near non-PSD.
     """
     X_np = np.ascontiguousarray(X, dtype=np.float64)
     if X_np.ndim != 2:
@@ -207,7 +215,15 @@ def ddrtree_torch(
             "CUDA is not available. Install a CUDA-capable build or "
             "choose device='cpu'."
         )
-    dtype = torch.float64
+    if dtype in (None, "float64"):
+        t_dtype = torch.float64
+    elif dtype == "float32":
+        t_dtype = torch.float32
+    else:
+        raise ValueError(
+            f"dtype must be None, 'float32' or 'float64'; got {dtype!r}"
+        )
+    dtype = t_dtype
 
     X_t = torch.from_numpy(X_np).to(device=resolved_device, dtype=dtype)
 

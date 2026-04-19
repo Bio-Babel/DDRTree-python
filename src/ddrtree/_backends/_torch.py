@@ -36,6 +36,7 @@ import torch
 from sklearn.cluster import KMeans
 
 from .._core import DDRTreeResult, _prim_mst
+from .._mst._boruvka_torch import boruvka_mst
 from scipy.sparse.csgraph import minimum_spanning_tree as _scipy_mst
 
 
@@ -134,6 +135,7 @@ def _torch_cholesky_solve(
 
 
 def _mst_via_numpy(distsqMU: torch.Tensor, mst_algorithm: str) -> torch.Tensor:
+    """Host-side MST fallback (Prim or Kruskal). For strict parity testing."""
     dist_np = distsqMU.detach().cpu().numpy()
     if mst_algorithm == "prim":
         mst_np = _prim_mst(dist_np)
@@ -142,6 +144,20 @@ def _mst_via_numpy(distsqMU: torch.Tensor, mst_algorithm: str) -> torch.Tensor:
         mst_np = mst_sp.toarray()
         mst_np = mst_np + mst_np.T
     return torch.from_numpy(mst_np).to(device=distsqMU.device, dtype=distsqMU.dtype)
+
+
+def _compute_mst(distsqMU: torch.Tensor, mst_algorithm: str) -> torch.Tensor:
+    """Dispatch MST computation.
+
+    * ``"boruvka"`` stays entirely on-device (torch). On CUDA this is the
+      fast path — no host round trip.
+    * ``"prim"`` and ``"kruskal"`` transfer to NumPy / SciPy for bit-for-bit
+      parity with the reference NumPy backend; intended for strict parity
+      testing rather than production runs.
+    """
+    if mst_algorithm == "boruvka":
+        return boruvka_mst(distsqMU)
+    return _mst_via_numpy(distsqMU, mst_algorithm)
 
 
 # ---------------------------------------------------------------------------
@@ -226,9 +242,10 @@ def ddrtree_torch(
     if lambda_ is None:
         lambda_ = 5.0 * N
 
-    if mst_algorithm not in ("prim", "kruskal"):
+    if mst_algorithm not in ("prim", "kruskal", "boruvka"):
         raise ValueError(
-            f"mst_algorithm must be 'prim' or 'kruskal'; got {mst_algorithm!r}"
+            "mst_algorithm must be 'prim', 'kruskal' or 'boruvka'; "
+            f"got {mst_algorithm!r}"
         )
 
     return _ddrtree_reduce_dim_torch(
@@ -268,9 +285,9 @@ def _ddrtree_reduce_dim_torch(
         if verbose:
             print(f"[DDRTree/torch] iter {it}")
 
-        # --- MST over current Y centers (host-side in P2) ----------------
+        # --- MST over current Y centers ---------------------------------
         distsqMU = _torch_sq_dist(Y, Y)                        # (K, K)
-        mst = _mst_via_numpy(distsqMU, mst_algorithm)
+        mst = _compute_mst(distsqMU, mst_algorithm)
         B = (mst > 0).to(dtype=dtype)                          # (K, K) 0/1
         last_tree = mst
 

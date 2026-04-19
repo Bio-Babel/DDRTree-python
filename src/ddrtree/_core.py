@@ -53,7 +53,7 @@ def DDRTree(
     gamma: float = 10.0,
     tol: float = 1e-3,
     verbose: bool = False,
-    mst_algorithm: str = "prim",
+    mst_algorithm: Optional[str] = None,
     backend: str = "numpy",
     **kwargs,
 ) -> DDRTreeResult:
@@ -65,12 +65,32 @@ def DDRTree(
     gold-standard parity tests. Other backends (``"torch"``, ``"auto"``) are
     introduced by later phases and share the same public signature and
     return contract.
+
+    ``mst_algorithm`` picks the minimum-spanning-tree algorithm used each
+    iteration. When left ``None`` each backend uses its natural default:
+    the NumPy backend runs dense Prim (matches R), and the torch backend
+    runs a GPU-friendly parallel Borůvka. Explicit values are
+    ``"prim"`` / ``"kruskal"`` (both backends) and ``"boruvka"`` (torch
+    only). All choices yield the same tree when edge weights are unique;
+    they may differ only in tie-breaking, which DDRTree's continuous
+    squared-distance weights never trigger in practice.
     """
     if backend not in _VALID_BACKENDS:
         raise ValueError(
             f"backend must be one of {_VALID_BACKENDS!r}; got {backend!r}"
         )
     if backend == "numpy":
+        # Resolve the per-backend MST default. NumPy natively runs dense
+        # Prim (matches R's src/DDRTree.cpp). "boruvka" is not offered by
+        # the NumPy backend — we refuse to accept it here rather than
+        # silently switching algorithms.
+        if mst_algorithm is None:
+            mst_algorithm = "prim"
+        elif mst_algorithm == "boruvka":
+            raise ValueError(
+                "mst_algorithm='boruvka' is only available with "
+                "backend='torch'."
+            )
         return _ddrtree_numpy(
             X=X,
             dimensions=dimensions,
@@ -86,7 +106,10 @@ def DDRTree(
             **kwargs,
         )
     # backend == "torch": lazy import so installations without PyTorch
-    # keep working for the default NumPy path.
+    # keep working for the default NumPy path. Torch's natural default is
+    # the GPU-friendly parallel Borůvka.
+    if mst_algorithm is None:
+        mst_algorithm = "boruvka"
     from ._backends._torch import ddrtree_torch
 
     return ddrtree_torch(

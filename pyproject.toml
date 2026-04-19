@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ddrtree"
+version = "0.1.0"
+description = "Python port of the DDRTree algorithm for learning principal graphs via reversed graph embedding."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Artistic-2.0" }
+authors = [
+    { name = "DDRTree-python contributors" }
+]
+keywords = ["DDRTree", "principal graph", "reversed graph embedding", "dimensionality reduction", "single-cell", "trajectory"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "scikit-learn>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov"]
+
+[project.urls]
+"Upstream (R package)" = "https://cran.r-project.org/package=DDRTree"
+"Original paper (KDD'15)" = "https://dl.acm.org/doi/10.1145/2783258.2783309"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

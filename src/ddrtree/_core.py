@@ -21,7 +21,7 @@ from sklearn.cluster import KMeans
 
 from ._utils import get_major_eigenvalue, pca_projection, sq_dist
 
-_VALID_BACKENDS = ("numpy",)
+_VALID_BACKENDS = ("numpy", "torch")
 
 
 @dataclass
@@ -70,8 +70,26 @@ def DDRTree(
         raise ValueError(
             f"backend must be one of {_VALID_BACKENDS!r}; got {backend!r}"
         )
-    # Only "numpy" is valid today; further backends plug in here.
-    return _ddrtree_numpy(
+    if backend == "numpy":
+        return _ddrtree_numpy(
+            X=X,
+            dimensions=dimensions,
+            initial_method=initial_method,
+            max_iter=max_iter,
+            sigma=sigma,
+            lambda_=lambda_,
+            ncenter=ncenter,
+            gamma=gamma,
+            tol=tol,
+            verbose=verbose,
+            mst_algorithm=mst_algorithm,
+            **kwargs,
+        )
+    # backend == "torch": lazy import so installations without PyTorch
+    # keep working for the default NumPy path.
+    from ._backends._torch import ddrtree_torch
+
+    return ddrtree_torch(
         X=X,
         dimensions=dimensions,
         initial_method=initial_method,

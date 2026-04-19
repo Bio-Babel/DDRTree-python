@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "pytest-cov"]
+torch = ["torch>=2.1"]
 
 [project.urls]
 "Upstream (R package)" = "https://cran.r-project.org/package=DDRTree"

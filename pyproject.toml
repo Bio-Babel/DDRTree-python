@@ -1,26 +1,46 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools-scm>=8"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ddrtree"
-version = "0.1.0"
-description = "Python port of the DDRTree algorithm for learning principal graphs via reversed graph embedding."
+name = "ddrtree-python"
+version = "0.1.6"
+description = "Python port of the R DDRTree package (tracks R DDRTree 0.1.6, CRAN 2026-02-24) — learns principal graphs via reversed graph embedding."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "Artistic-2.0" }
+license = "Artistic-2.0"
+license-files = ["LICENSE"]
 authors = [
-    { name = "DDRTree-python contributors" }
+    { name = "Jeffery Liu", email = "jeffliu.lucky@gmail.com" },
 ]
-keywords = ["DDRTree", "principal graph", "reversed graph embedding", "dimensionality reduction", "single-cell", "trajectory"]
+keywords = [
+    "DDRTree",
+    "principal-graph",
+    "reversed-graph-embedding",
+    "dimensionality-reduction",
+    "single-cell",
+    "trajectory",
+    "pseudotime",
+    "monocle",
+    "R-port",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=1.21",
@@ -29,15 +49,28 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "pytest-cov"]
 torch = ["torch>=2.1"]
+dev = ["pytest>=7", "pytest-cov", "build", "twine"]
 
 [project.urls]
-"Upstream (R package)" = "https://cran.r-project.org/package=DDRTree"
-"Original paper (KDD'15)" = "https://dl.acm.org/doi/10.1145/2783258.2783309"
+Homepage              = "https://github.com/Bio-Babel/DDRTree-python"
+Repository            = "https://github.com/Bio-Babel/DDRTree-python"
+Issues                = "https://github.com/Bio-Babel/DDRTree-python/issues"
+Documentation         = "https://github.com/Bio-Babel/DDRTree-python#readme"
+"Upstream (R package)"      = "https://cran.r-project.org/package=DDRTree"
+"Original paper (KDD'15)"   = "https://dl.acm.org/doi/10.1145/2783258.2783309"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["tests", "tests.*"]
+
+[tool.setuptools.package-data]
+ddrtree = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

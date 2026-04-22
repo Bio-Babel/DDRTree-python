@@ -1,8 +1,12 @@
 # DDRTree-python
 
-A pure NumPy/SciPy port of the [DDRTree](https://cran.r-project.org/package=DDRTree) R
+[![PyPI](https://img.shields.io/pypi/v/ddrtree-python)](https://pypi.org/project/ddrtree-python/)
+
+AI-assisted Python port of the [DDRTree](https://cran.r-project.org/package=DDRTree) R
 package — **Discriminative Dimensionality Reduction via learning a Tree** — from the
 KDD'15 paper by Qi Mao, Li Wang, Steve Goodison and Yijun Sun.
+
+Tracks the R CRAN release **DDRTree 0.1.6** (2026-02-24).
 
 DDRTree simultaneously:
 
@@ -16,9 +20,18 @@ for any data with a tree-like intrinsic structure.
 
 ## Installation
 
+```bash
+# From PyPI (distribution: ddrtree-python, import: ddrtree)
+pip install ddrtree-python             # NumPy backend only
+pip install ddrtree-python[torch]      # + PyTorch backend (CPU / CUDA)
 ```
-pip install ddrtree             # NumPy backend only
-pip install ddrtree[torch]      # + PyTorch backend (CPU / CUDA)
+
+For local development:
+
+```bash
+git clone https://github.com/Bio-Babel/DDRTree-python.git
+cd DDRTree-python
+pip install -e ".[dev]"
 ```
 
 The core depends on `numpy`, `scipy`, and `scikit-learn`. The optional

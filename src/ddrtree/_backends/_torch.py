@@ -334,12 +334,17 @@ def _ddrtree_reduce_dim_torch(
 
         Gamma = torch.diag(R_mat.sum(dim=0))                   # (K, K)
 
-        # --- Objective (mirrors C++ exactly) -----------------------------
+        # --- Objective (mirrors C++ intent — see numpy backend note) -----
+        # See ``_core.py`` for the full rationale: R/C++ double-squares the
+        # spectral norm (DDRTree.cpp:349-352) against the documented
+        # intent at DDRTree.cpp:341. We drop the extra squaring here too
+        # so the torch backend stays consistent with the numpy backend
+        # rather than with the R upstream defect.
         x1 = torch.log(torch.sum(torch.exp(-tmp_distZY / sigma), dim=1))
         obj1 = -sigma * float((x1 - min_dist[:, 0] / sigma).sum())
 
         major_eig = _torch_get_major_eigenvalue(X_t - W @ Z, dimensions)
-        obj2 = major_eig * major_eig
+        obj2 = major_eig
         obj2 += lambda_ * float(torch.trace(Y @ L_mat @ Y.T))
         obj2 += gamma * obj1
         objective_vals.append(obj2)

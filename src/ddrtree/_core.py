@@ -249,8 +249,15 @@ def _ddrtree_numpy(
         # are `floor(linspace(1, N, K)) - 1`.
         idx = np.linspace(1, Z.shape[1], num=K).astype(int) - 1
         init_centers = Z.T[idx, :]
+        # ``max_iter=10`` mirrors R's ``stats::kmeans`` default
+        # ``iter.max=10`` (R doesn't pass it explicitly either — we make it
+        # explicit because sklearn's default is 300). ``n_init=1`` matches
+        # R's ``nstart=1`` default. We deliberately do *not* pass ``tol``:
+        # R's kmeans has no user-facing tolerance knob and we let sklearn
+        # use its own default, avoiding a hardcoded constant that R never
+        # commits to (gold standard sets neither).
         km = KMeans(n_clusters=K, init=init_centers, n_init=1, max_iter=10,
-                    algorithm="lloyd", tol=1e-4).fit(Z.T)
+                    algorithm="lloyd").fit(Z.T)
         Y = km.cluster_centers_.T                    # (d, K)
 
     if lambda_ is None:
@@ -332,9 +339,23 @@ def _ddrtree_reduce_dim(
         x1 = np.log(np.sum(np.exp(-tmp_distZY / sigma), axis=1))
         obj1 = -sigma * float(np.sum(x1 - min_dist[:, 0] / sigma))
 
-        # obj2 = get_major_eigenvalue(X - W @ Z, d)^2 + lambda * trace(Y L Y^T) + gamma * obj1
+        # obj2 = ||X - W @ Z||_2^2 + lambda * trace(Y L Y^T) + gamma * obj1
+        # ---- Intentional deviation from R upstream ----------------------
+        # DDRTree.cpp:341 documents the intended term as
+        #   ``(norm(X - W %*% Z, '2'))^2`` — i.e. spectral-norm squared.
+        # The R helper ``get_major_eigenvalue`` (DDRTree.R:34) on its dense
+        # branch *already* returns ``norm(C, '2')^2``, so the subsequent
+        # ``obj2 = obj2 * obj2`` in DDRTree.cpp:349-352 squares once more
+        # and yields ``||C||_2^4`` — contradicting the documented intent.
+        # We drop that second squaring because (a) the C++ comment is the
+        # ground truth of the algorithm's intended objective, (b) obj2
+        # only feeds the relative-change convergence test, so the
+        # fixed-point Z/Y/W is unchanged, and (c) the project-level
+        # decision is that math correctness wins over byte parity for a
+        # non-load-bearing reporting defect. Iteration counts may differ
+        # slightly from R because the relative-change ratio rescales.
         major_eig = get_major_eigenvalue(X - W @ Z, dimensions)
-        obj2 = major_eig * major_eig
+        obj2 = major_eig
         obj2 += lambda_ * float(np.trace(Y @ L_mat @ Y.T))
         obj2 += gamma * obj1
         objective_vals.append(obj2)

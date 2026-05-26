@@ -121,11 +121,23 @@ def test_torch_matches_r_gold_standard(case):
     )
     np.testing.assert_allclose(stree_py, stree_r, atol=atol, rtol=rtol)
 
-    # Iteration count match
-    assert len(res.objective_vals) == len(obj_r), (
-        f"Iteration count mismatch: py={len(res.objective_vals)}, "
-        f"r={len(obj_r)}"
+    # Iteration count check: allow ±1 drift vs R. We intentionally deviate
+    # from R's objective formula (see _core.py / _torch.py — R/C++
+    # double-squares the spectral-norm term, contradicting the documented
+    # intent at DDRTree.cpp:341), and the relative-change ratio that gates
+    # convergence rescales as a result.
+    assert abs(len(res.objective_vals) - len(obj_r)) <= 1, (
+        f"Iteration count drifts more than 1 step: "
+        f"py={len(res.objective_vals)}, r={len(obj_r)}"
     )
-    np.testing.assert_allclose(
-        np.array(res.objective_vals), obj_r, atol=obj_atol, rtol=obj_rtol
-    )
+
+    # Element-wise objective-value comparison against R's gold txt is no
+    # longer meaningful: R's gold encodes the documented-as-unintended
+    # ``||C||_2^4 + ...`` while we now produce the documented-intent
+    # ``||C||_2^2 + ...``. The structural checks above (W subspace, Z/Y
+    # sign-aligned, MST edges, reconstruction) already prove the
+    # fixed-point matches R. The DDRTree objective is not guaranteed to
+    # be monotonically non-increasing on every input (see test_ddrtree.py
+    # for details), so verify only finiteness here.
+    obj_py = np.asarray(res.objective_vals, dtype=float)
+    assert np.all(np.isfinite(obj_py))

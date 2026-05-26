@@ -135,13 +135,33 @@ def test_ddrtree_matches_r_gold_standard(case):
     )
     np.testing.assert_allclose(stree_py, stree_r, atol=atol, rtol=rtol)
 
-    # Iteration count must match (same convergence behaviour).
-    assert len(res.objective_vals) == len(obj_r), (
-        f"Iteration count mismatch: py={len(res.objective_vals)}, "
-        f"r={len(obj_r)}"
+    # Iteration count check: allow ±1 drift vs R because we intentionally
+    # deviate from R's objective formula (see _core.py / _torch.py — R/C++
+    # double-squares the spectral-norm term, contradicting the documented
+    # intent at DDRTree.cpp:341; we use the single-squared form). The
+    # relative-change ratio that gates convergence rescales accordingly,
+    # so the per-iteration ``delta < tol`` check may fire one step earlier
+    # or later than R on borderline cases.
+    assert abs(len(res.objective_vals) - len(obj_r)) <= 1, (
+        f"Iteration count drifts more than 1 step: "
+        f"py={len(res.objective_vals)}, r={len(obj_r)}"
     )
-    np.testing.assert_allclose(np.array(res.objective_vals), obj_r,
-                               atol=obj_atol, rtol=obj_rtol)
+
+    # We no longer compare ``objective_vals`` element-wise against R's
+    # gold standard ``obj.txt`` files: those were generated with R's
+    # double-square defect baked in (DDRTree.cpp:349-352), so they
+    # encode ``||C||_2^4 + λ tr(Y L Y^T) + γ obj1`` while we now produce
+    # ``||C||_2^2 + λ tr(Y L Y^T) + γ obj1``. The structural assertions
+    # above (W subspace, Z/Y sign-aligned values, MST edges,
+    # reconstruction) confirm the fixed-point solution still matches R
+    # exactly; only the convergence-monitoring scalar differs by design.
+    # Note: the DDRTree objective is *not* guaranteed to be monotonically
+    # non-increasing — the alternating-block updates can produce small
+    # oscillations on some inputs (e.g. branch_k20). Convergence is
+    # gated by |Δobj| / |prev| < tol regardless of sign, so we only
+    # assert finiteness here.
+    obj_py = np.asarray(res.objective_vals, dtype=float)
+    assert np.all(np.isfinite(obj_py))
 
 
 def test_ddrtree_basic_shapes():

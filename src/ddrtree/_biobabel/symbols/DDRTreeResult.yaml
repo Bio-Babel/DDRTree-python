@@ -1,0 +1,48 @@
+id: ddrtree.DDRTreeResult
+import_path: ddrtree._core.DDRTreeResult
+kind: class
+signature: "DDRTreeResult(W: numpy.ndarray, Z: numpy.ndarray, Y: numpy.ndarray, stree: scipy.sparse.csr_matrix, X: numpy.ndarray, objective_vals: List[float], history: None = None)"
+purpose: "Dataclass container for ddrtree.DDRTree's outputs, mirroring the seven-name list returned by the R DDRTree function."
+description: >
+  Plain dataclass; every field is assigned once at construction by
+  ddrtree.DDRTree and never mutated afterward. history is always None - the R
+  package's own `history` field is likewise always NULL (an unfinished
+  placeholder) - it is kept here only so user code iterating R-style field
+  names does not break.
+parameters:
+  - name: W
+    type: numpy.ndarray
+    required: true
+    description: "(D, d) orthonormal projection basis mapping the original feature space to the reduced space."
+  - name: Z
+    type: numpy.ndarray
+    required: true
+    description: "(d, N) reduced-dimension coordinates of every input sample."
+  - name: Y
+    type: numpy.ndarray
+    required: true
+    description: "(d, K) coordinates of the principal-graph nodes."
+  - name: stree
+    type: scipy.sparse.csr_matrix
+    required: true
+    description: "(N, N) sparse MST edge-weight matrix; only the leading (K, K) block is populated (K = N when ncenter was None)."
+  - name: X
+    type: numpy.ndarray
+    required: true
+    description: "(D, N) input data matrix, echoed back as in the R return list."
+  - name: objective_vals
+    type: List[float]
+    required: true
+    description: "Objective value recorded at the end of each completed optimisation iteration."
+  - name: history
+    type: None
+    required: false
+    default: null
+    description: "Always None; placeholder mirroring the R package's own always-NULL history field."
+mutates: "execution_class=data_container; fields are assigned once at construction and never mutated afterward by ddrtree.DDRTree; returns_kind=new_object."
+requires: []
+writes: []
+examples:
+  - "res = DDRTree(X, dimensions=2, ncenter=50); res.Z; res.Y; res.stree"
+related:
+  - ddrtree.DDRTree

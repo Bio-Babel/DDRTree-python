@@ -60,6 +60,8 @@ Documentation         = "https://github.com/Bio-Babel/DDRTree-python#readme"
 "Upstream (R package)"      = "https://cran.r-project.org/package=DDRTree"
 "Original paper (KDD'15)"   = "https://dl.acm.org/doi/10.1145/2783258.2783309"
 
+[project.entry-points."biobabel.manifest"]
+ddrtree = "ddrtree._biobabel:get_manifest"
 [tool.setuptools]
 package-dir = { "" = "src" }
 
@@ -74,3 +76,6 @@ ddrtree = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.biobabel]
+contract_class = "analysis"

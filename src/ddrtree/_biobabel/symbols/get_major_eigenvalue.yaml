@@ -1,0 +1,37 @@
+id: ddrtree.get_major_eigenvalue
+import_path: ddrtree._utils.get_major_eigenvalue
+kind: function
+signature: "get_major_eigenvalue(C: numpy.ndarray, L: int) -> float"
+purpose: "Quirk-faithful port of the R get_major_eigenvalue helper; feeds the per-iteration objective value that ddrtree.DDRTree's convergence check relies on."
+description: >
+  Two branches, both preserved exactly for numerical parity with the R
+  gold standard rather than "corrected" into a single well-defined
+  eigenvalue routine: when L >= min(C.shape), returns the squared spectral
+  norm ||C||_2^2 (numpy.linalg.norm(C, ord=2) ** 2). When L < min(C.shape),
+  returns max(abs(v)) over the top-L right singular vectors of C (computed
+  via numpy.linalg.svd) - this ignores the singular values entirely and is
+  almost certainly a bug in the original R implementation, but because it
+  only feeds the objective's relative-change convergence test (not the
+  fixed-point Z/Y/W updates themselves), it is mirrored exactly rather than
+  fixed.
+parameters:
+  - name: C
+    type: numpy.ndarray
+    required: true
+    description: "Matrix whose major-eigenvalue-like quantity is computed. In ddrtree.DDRTree this is X - W @ Z."
+  - name: L
+    type: int
+    required: true
+    description: "Branch selector / requested rank; equals dimensions in ddrtree.DDRTree's caller."
+returns: >
+  float: the squared spectral norm of C when L >= min(C.shape); otherwise the
+  maximum absolute entry among the top-L right singular vectors of C (not a
+  true eigenvalue - a known upstream R quirk preserved for parity).
+mutates: "execution_class=pure_function; does not mutate C; returns_kind=new_object (float)."
+requires: []
+writes: []
+examples:
+  - "get_major_eigenvalue(X - W @ Z, dimensions)"
+related:
+  - ddrtree.DDRTree
+  - ddrtree.pca_projection

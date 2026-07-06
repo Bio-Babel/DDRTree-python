@@ -1,0 +1,34 @@
+id: ddrtree.sq_dist
+import_path: ddrtree._utils.sq_dist
+kind: function
+signature: "sq_dist(a: numpy.ndarray, b: numpy.ndarray) -> numpy.ndarray"
+purpose: "Pairwise squared Euclidean distance between the columns of a and b; used internally by ddrtree.DDRTree for the center-to-center and sample-to-center distance matrices each iteration."
+description: >
+  Mirrors sqdist_R in the R package. Computes ||a_i - b_j||^2 for every
+  column pair via the expansion aa[:, None] + bb[None, :] - 2 * a.T @ b, then
+  takes np.abs() of the result to clamp floating-point negative near-zero
+  values that this expansion can produce for near-identical columns.
+parameters:
+  - name: a
+    type: numpy.ndarray
+    required: true
+    description: "(D, Na) matrix; columns are points."
+  - name: b
+    type: numpy.ndarray
+    required: true
+    description: "(D, Nb) matrix; columns are points. Must have the same number of rows D as a."
+returns: "numpy.ndarray of shape (Na, Nb): squared Euclidean distance between column i of a and column j of b."
+mutates: "execution_class=pure_function; does not mutate a or b; returns_kind=new_object (ndarray)."
+requires: []
+writes: []
+examples:
+  - "sq_dist(Y, Y)"
+  - "sq_dist(Z, Y)"
+failure_fixes:
+  - when: "a and b have different numbers of rows (a.shape[0] != b.shape[0])"
+    suggest:
+      - "Ensure both a and b are shaped (D, N) with the same feature dimension D before calling sq_dist."
+    explanation: "sq_dist raises ValueError('sq_dist: row counts differ (a: ..., b: ...)') when a.shape[0] != b.shape[0]; the column-wise pairwise distance requires matching feature dimension."
+related:
+  - ddrtree.DDRTree
+  - ddrtree.pca_projection

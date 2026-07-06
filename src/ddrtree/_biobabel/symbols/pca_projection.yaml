@@ -1,0 +1,36 @@
+id: ddrtree.pca_projection
+import_path: ddrtree._utils.pca_projection
+kind: function
+signature: "pca_projection(C: numpy.ndarray, L: int) -> numpy.ndarray"
+purpose: "Return the top-L eigenvectors or right singular vectors of C; used internally by ddrtree.DDRTree to (re)compute its projection basis W each iteration."
+description: >
+  Faithful port of pca_projection_R from R/DDRTree.R, with two branches on
+  the relative size of L: when L >= min(C.shape), returns the top-L
+  eigenvectors of the full numpy.linalg.eig decomposition (matching R's
+  eigen(C), which uses the general algorithm even on symmetric input, taking
+  the real part). When L < min(C.shape), returns the top-L right singular
+  vectors from an ARPACK-based truncated SVD (scipy.sparse.linalg.svds,
+  seeded with the same deterministic starting vector R's irlba(C, nv=L) uses:
+  qnorm(1:(ncol(C)+1)/(ncol(C)+1))[1:ncol(C)]), mirroring R's iterative irlba
+  behaviour rather than jumping to a direct eigh/svd.
+parameters:
+  - name: C
+    type: numpy.ndarray
+    required: true
+    description: "Matrix to decompose, shape (n, p). In ddrtree.DDRTree this is X @ X.T (initialisation) or a symmetrized (D, D) matrix (per-iteration W update)."
+  - name: L
+    type: int
+    required: true
+    description: "Number of leading eigen/singular vectors to keep; selects the full-eigen branch when L >= min(C.shape), otherwise the truncated-SVD branch."
+returns: >
+  numpy.ndarray of shape (C.shape[0], L): top-L eigenvectors (full branch) or
+  right singular vectors (truncated branch), columns ordered by descending
+  eigenvalue / singular value.
+mutates: "execution_class=pure_function; does not mutate C; returns_kind=new_object (ndarray)."
+requires: []
+writes: []
+examples:
+  - "pca_projection(X @ X.T, dimensions)"
+related:
+  - ddrtree.DDRTree
+  - ddrtree.get_major_eigenvalue

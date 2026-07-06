@@ -1,0 +1,134 @@
+id: ddrtree.DDRTree
+import_path: ddrtree._core.DDRTree
+kind: function
+signature: "DDRTree(X: np.ndarray, dimensions: int = 2, initial_method: Optional[Callable[..., np.ndarray]] = None, max_iter: int = 20, sigma: float = 1e-3, lambda_: Optional[float] = None, ncenter: Optional[int] = None, gamma: float = 10.0, tol: float = 1e-3, verbose: bool = False, mst_algorithm: Optional[str] = None, backend: str = 'numpy', device: Optional[str] = None, dtype: Optional[str] = None, **kwargs) -> DDRTreeResult"
+purpose: "Learn a low-dimensional embedding and an explicit principal tree graph from a D x N data matrix via reversed graph embedding (DDRTree, Mao et al. KDD'15)."
+description: >
+  Single-call entry point: dispatches to one of two computational backends
+  that share the same signature and return contract. backend='numpy' (the
+  default) is the reference implementation mirroring the R package's
+  src/DDRTree.cpp (dense Prim MST, fp64 only, CPU only). backend='torch' runs
+  on CPU or CUDA with a GPU-friendly parallel Boruvka MST by default, and
+  additionally supports fp32 via dtype='float32'. mst_algorithm picks the
+  minimum-spanning-tree algorithm run each iteration over the current K
+  principal-graph node centers: None resolves to each backend's natural
+  default (prim for numpy, boruvka for torch); explicit 'prim'/'kruskal' are
+  available on both backends, 'boruvka' only on backend='torch'. All choices
+  yield the same tree when edge weights are unique, which DDRTree's
+  continuous squared-distance weights never violate in practice.
+parameters:
+  - name: X
+    type: numpy.ndarray
+    required: true
+    description: "Input data matrix, shape (D, N): D features (rows) x N samples (columns), matching the R package's convention (not scikit-learn's samples x features)."
+  - name: dimensions
+    type: int
+    required: false
+    default: 2
+    description: "Target reduced dimensionality d of the embedding Z and principal-graph coordinates Y."
+  - name: initial_method
+    type: "Optional[Callable[..., numpy.ndarray]]"
+    required: false
+    default: null
+    description: "Optional callback invoked as initial_method(X, **kwargs) to initialise Z instead of the default PCA (pca_projection) initialisation. Must return an array of shape (<=N, <=D); only its first `dimensions` columns, transposed, are used."
+  - name: max_iter
+    type: int
+    required: false
+    default: 20
+    description: "Maximum number of alternating-optimisation iterations."
+  - name: sigma
+    type: float
+    required: false
+    default: 0.001
+    description: "Bandwidth of the soft-assignment softmax that turns per-sample distances to principal-graph nodes into the responsibility matrix R."
+  - name: lambda_
+    type: Optional[float]
+    required: false
+    default: null
+    description: "Regularisation strength for the reversed-graph-embedding (tree-smoothness) term. When None, defaults to 5 * N (N = X.shape[1]), matching the R default. Named lambda_ (trailing underscore) because lambda is a reserved word in Python."
+  - name: ncenter
+    type: Optional[int]
+    required: false
+    default: null
+    description: "Number of principal-graph nodes K. When None, K = N (every sample is its own node, no K-means initialisation). When set, must be <= X.shape[1]; centers are initialised via K-means on the initial Z."
+  - name: gamma
+    type: float
+    required: false
+    default: 10.0
+    description: "Regularisation strength for the K-means-like clustering term."
+  - name: tol
+    type: float
+    required: false
+    default: 0.001
+    description: "Relative-change-in-objective threshold for early stopping (checked from the second iteration onward: |delta_obj| / |prev_obj| < tol)."
+  - name: verbose
+    type: bool
+    required: false
+    default: false
+    description: "Print per-iteration objective/delta diagnostics to stdout."
+  - name: mst_algorithm
+    type: Optional[str]
+    required: false
+    default: null
+    description: "MST algorithm for the per-iteration tree over principal-graph centers: None (backend default), 'prim', 'kruskal' (both backends), or 'boruvka' (backend='torch' only)."
+  - name: backend
+    type: str
+    required: false
+    default: numpy
+    description: "Computational backend: 'numpy' (default, CPU reference matching R) or 'torch' (CPU/CUDA, parallel Boruvka MST by default)."
+  - name: device
+    type: Optional[str]
+    required: false
+    default: null
+    description: "Torch device string (e.g. 'cpu', 'cuda'). Only meaningful with backend='torch'; backend='numpy' accepts only None or 'cpu'."
+  - name: dtype
+    type: Optional[str]
+    required: false
+    default: null
+    description: "Floating-point dtype: None or 'float64' (both backends), or 'float32' (backend='torch' only, opt-in half-memory/faster path with ~1e-3 relative drift in the converged embedding)."
+mutates: "execution_class=pure_function; does not mutate X or any other argument in place; returns_kind=new_object (a new DDRTreeResult)."
+returns: >
+  DDRTreeResult with fields: W (D, d) orthonormal projection basis; Z (d, N)
+  reduced-dimension embedding; Y (d, K) principal-graph node coordinates;
+  stree (N, N) scipy.sparse.csr_matrix of MST edge weights with only the
+  (K, K) leading block populated (K = N when ncenter is None); X (D, N) the
+  echoed input; objective_vals (list[float]) the objective value recorded at
+  each completed iteration; history (always None, an unfinished placeholder
+  mirroring the R return list).
+requires: []
+writes: []
+examples:
+  - "DDRTree(X, dimensions=2, ncenter=50)"
+  - "DDRTree(X, dimensions=2, max_iter=20, sigma=1e-3, lambda_=None, ncenter=50, gamma=10.0, tol=1e-3, verbose=False)"
+  - "DDRTree(X, dimensions=2, ncenter=500, backend='torch', device='cuda')"
+  - "DDRTree(X, dimensions=2, ncenter=500, backend='torch', device='cuda', dtype='float32')"
+failure_fixes:
+  - when: "backend is not one of 'numpy' or 'torch'"
+    suggest:
+      - "Pass backend='numpy' (default, CPU reference) or backend='torch' (CPU/CUDA)."
+    explanation: "DDRTree validates backend against _VALID_BACKENDS = ('numpy', 'torch') and raises ValueError('backend must be one of ...') for any other value."
+  - when: "X is not a 2D array (e.g. a 1D vector)"
+    suggest:
+      - "Reshape X to (D, N) - features x samples - before calling DDRTree."
+    explanation: "The numpy backend calls np.ascontiguousarray(X) then checks X.ndim != 2 and raises ValueError('X must be 2D, got shape ...')."
+  - when: "ncenter is greater than the number of samples N (X.shape[1])"
+    suggest:
+      - "Pass ncenter <= X.shape[1], or leave ncenter=None to use K=N (one center per sample, no K-means initialisation)."
+    explanation: "The numpy backend raises ValueError('ncenter must be <= ncol(X); got ncenter=..., ncol(X)=...') when K > Z.shape[1]."
+  - when: "backend='numpy' is combined with device not in (None, 'cpu')"
+    suggest:
+      - "Use backend='torch' with device='cuda' (or leave device=None) for GPU execution; backend='numpy' only runs on CPU."
+    explanation: "The numpy backend has no device concept and raises ValueError(\"device=... is not supported by backend='numpy'...\") for any device other than None/'cpu'."
+  - when: "backend='numpy' is combined with dtype not in (None, 'float64')"
+    suggest:
+      - "Use backend='torch' for float32 execution; the numpy backend is float64-only (scipy.sparse.linalg.svds is also not reliably fp32)."
+    explanation: "The numpy backend raises ValueError(\"dtype=... is not supported by backend='numpy'...\") for any dtype other than None/'float64'."
+  - when: "mst_algorithm='boruvka' is passed together with backend='numpy'"
+    suggest:
+      - "Use backend='torch' for the Boruvka MST algorithm, or use mst_algorithm='prim'/'kruskal' (or leave it None) with backend='numpy'."
+    explanation: "The numpy backend explicitly rejects mst_algorithm='boruvka' with ValueError(\"mst_algorithm='boruvka' is only available with backend='torch'.\")."
+related:
+  - ddrtree.DDRTreeResult
+  - ddrtree.pca_projection
+  - ddrtree.sq_dist
+  - ddrtree.get_major_eigenvalue

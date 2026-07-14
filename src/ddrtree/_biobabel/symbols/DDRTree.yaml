@@ -20,7 +20,7 @@ parameters:
   - name: X
     type: numpy.ndarray
     required: true
-    description: "Input data matrix, shape (D, N): D features (rows) x N samples (columns), matching the R package's convention (not scikit-learn's samples x features)."
+    description: "Input data matrix, shape (D, N): D features (rows) x N samples (columns), matching the R package's convention (not scikit-learn's samples x features). Must be an already-preprocessed numeric matrix — DDRTree does not read AnnData or perform normalization, QC, or feature selection; do not pass raw single-cell counts."
   - name: dimensions
     type: int
     required: false
